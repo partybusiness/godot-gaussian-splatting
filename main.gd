@@ -38,9 +38,11 @@ var globalInvocationSize: int
 
 
 var num_vertex: int
-var output_tex: RID
+var left_output_tex: RID
+var right_output_tex: RID
 
-var display_texture:Texture2DRD
+var left_display:Texture2DRD
+var right_display:Texture2DRD
 
 var camera_matrices_buffer: RID
 var params_buffer: RID
@@ -80,9 +82,11 @@ func _projection_to_bytes(p : Projection) -> PackedByteArray:
 	return bytes
 
 func _initialise_screen_texture():
-	display_texture = Texture2DRD.new()
-	screen_texture.texture = display_texture
-	(mesh_display.get_active_material(0) as ShaderMaterial).set_shader_parameter("display_texture", display_texture)
+	left_display = Texture2DRD.new()
+	right_display = Texture2DRD.new()
+	screen_texture.texture = left_display
+	(mesh_display.get_active_material(0) as ShaderMaterial).set_shader_parameter("left_texture", left_display)
+	(mesh_display.get_active_material(0) as ShaderMaterial).set_shader_parameter("right_texture", right_display)
 
 
 func _load_ply_file():
@@ -119,9 +123,9 @@ func _initialise_framebuffer_format():
 	tex_format.width = get_viewport().size.x
 	tex_format.format = RenderingDevice.DATA_FORMAT_R32G32B32A32_SFLOAT
 	tex_format.usage_bits = (RenderingDevice.TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT)
-	output_tex = rd.texture_create(tex_format,tex_view)
+	left_output_tex = rd.texture_create(tex_format,tex_view)
 	
-	display_texture.texture_rd_rid = output_tex
+	left_display.texture_rd_rid = left_output_tex
 	
 	var attachments = []
 	var attachment_format := RDAttachmentFormat.new()
@@ -296,7 +300,7 @@ func _ready():
 	blend.attachments.push_back(blend_attachment)	
 
 	var framebuffer_format = _initialise_framebuffer_format()
-	framebuffer = rd.framebuffer_create([output_tex], framebuffer_format)
+	framebuffer = rd.framebuffer_create([left_output_tex], framebuffer_format)
 	print("framebuffer valid: ",rd.framebuffer_is_valid(framebuffer))
 	
 	var static_bindings = [
@@ -336,7 +340,7 @@ func _ready():
 # Reconfigure render pipeline with new viewport size
 func _on_viewport_size_changed():
 	var framebuf_format = _initialise_framebuffer_format()
-	framebuffer = rd.framebuffer_create([output_tex], framebuf_format)
+	framebuffer = rd.framebuffer_create([left_output_tex], framebuf_format)
 	
 	pipeline = rd.render_pipeline_create(
 		shader,
