@@ -11,7 +11,7 @@ void vertex() {
 void fragment() {
 	vec4 sample;
 	if (VIEW_INDEX == 0)
-		sample = texture(left_texture, UV);
+		sample = texture(left_texture, 1.0 - UV);
 	else
 		sample = texture(right_texture, UV);
 	ALBEDO = sample.rgb;
