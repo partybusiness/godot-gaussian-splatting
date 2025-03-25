@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://c27tc42js165g"]
+[gd_scene load_steps=9 format=3 uid="uid://c27tc42js165g"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_j5eux"]
 [ext_resource type="Script" path="res://Camera.gd" id="2_ppc5i"]
@@ -11,6 +11,8 @@
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_35q0j"]
 render_priority = 0
 shader = ExtResource("4_adnju")
+
+[sub_resource type="BoxMesh" id="BoxMesh_wbom5"]
 
 [node name="main" type="Node3D" node_paths=PackedStringArray("xrcamera", "origin", "screen_texture", "mesh_display")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.56234)
@@ -34,6 +36,7 @@ text = "FPS"
 script = ExtResource("3_j0yit")
 
 [node name="Movement" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 0)
 script = ExtResource("2_ppc5i")
 
 [node name="XROrigin3D" type="XROrigin3D" parent="Movement"]
@@ -46,3 +49,10 @@ transform = Transform3D(-1, 8.74228e-08, 0, -8.74228e-08, -1, 0, 0, 0, 1, 0, 0, 
 mesh = SubResource("QuadMesh_n257o")
 skeleton = NodePath("../../../..")
 surface_material_override/0 = SubResource("ShaderMaterial_35q0j")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.4993, 0, 0)
+mesh = SubResource("BoxMesh_wbom5")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="MeshInstance3D"]
+transform = Transform3D(1, 0, 0, 0, 0.258819, 0.965926, 0, -0.965926, 0.258819, 0, 3, 0)

@@ -114,7 +114,7 @@ func _load_ply_file():
 	file.close()
 	
 
-func _initialise_framebuffer_format():
+func _initialise_framebuffer_format() -> int:
 	_initialise_screen_texture()
 	var tex_format := RDTextureFormat.new()
 	var tex_view := RDTextureView.new()
@@ -123,17 +123,20 @@ func _initialise_framebuffer_format():
 	tex_format.width = get_viewport().size.x
 	tex_format.format = RenderingDevice.DATA_FORMAT_R32G32B32A32_SFLOAT
 	tex_format.usage_bits = (RenderingDevice.TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT)
-	left_output_tex = rd.texture_create(tex_format,tex_view)
-	
+	tex_format.array_layers = 2
+	left_output_tex = rd.texture_create(tex_format, tex_view)
 	left_display.texture_rd_rid = left_output_tex
 	
+	right_output_tex = rd.texture_create(tex_format,tex_view)
+	right_display.texture_rd_rid = right_output_tex
+		
 	var attachments = []
 	var attachment_format := RDAttachmentFormat.new()
 	attachment_format.set_format(tex_format.format)
 	attachment_format.set_samples(RenderingDevice.TEXTURE_SAMPLES_1)
 	attachment_format.usage_flags = RenderingDevice.TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT
 	attachments.push_back(attachment_format)	
-	var framebuf_format = rd.framebuffer_format_create(attachments)
+	var framebuf_format:int = rd.framebuffer_format_create(attachments, 1)
 	return framebuf_format
 
 
@@ -269,11 +272,11 @@ func _ready():
 	vertex_array = rd.vertex_array_create(4, vertex_format, vertex_buffers)
 			
 	# Camera Matrices Buffer
-	var cam_to_world : Transform3D = xr_interface.get_transform_for_view(0, origin.transform)
+	var cam_to_world : Transform3D = xr_interface.get_transform_for_view(0, origin.global_transform)
 	
 	
 	var camera_matrices_bytes := PackedByteArray()
-	camera_matrices_bytes.append_array(_matrix_to_bytes(cam_to_world))
+	camera_matrices_bytes.append_array(_matrix_to_bytes(cam_to_world.affine_inverse()))
 	#camera_matrices_bytes.append_array(_matrix_to_bytes(cam_to_world.affine_inverse()))
 	camera_matrices_bytes.append_array(_projection_to_bytes(xr_interface.get_projection_for_view(0, 1.0, xrcamera.near, xrcamera.far)))
 	#camera_matrices_bytes.append_array(PackedFloat32Array([4000.0, 0.05]).to_byte_array())
@@ -300,7 +303,7 @@ func _ready():
 	blend.attachments.push_back(blend_attachment)	
 
 	var framebuffer_format = _initialise_framebuffer_format()
-	framebuffer = rd.framebuffer_create([left_output_tex], framebuffer_format)
+	framebuffer = rd.framebuffer_create([left_output_tex], framebuffer_format, 1)
 	print("framebuffer valid: ",rd.framebuffer_is_valid(framebuffer))
 	
 	var static_bindings = [
@@ -340,7 +343,7 @@ func _ready():
 # Reconfigure render pipeline with new viewport size
 func _on_viewport_size_changed():
 	var framebuf_format = _initialise_framebuffer_format()
-	framebuffer = rd.framebuffer_create([left_output_tex], framebuf_format)
+	framebuffer = rd.framebuffer_create([left_output_tex], framebuf_format, 1)
 	
 	pipeline = rd.render_pipeline_create(
 		shader,
@@ -402,7 +405,7 @@ func update():
 	var aspect:float = get_viewport().size.x / get_viewport().size.y
 	# Camera Matrices Buffer
 	var camera_matrices_bytes := PackedByteArray()
-	var cam_to_world : Transform3D = xr_interface.get_transform_for_view(0, origin.transform)
+	var cam_to_world : Transform3D = xrcamera.global_transform #xr_interface.get_transform_for_view(0, origin.global_transform)
 	camera_matrices_bytes.append_array(_matrix_to_bytes(cam_to_world.affine_inverse()))
 	camera_matrices_bytes.append_array(_projection_to_bytes(xr_interface.get_projection_for_view(0, aspect / 2.0, xrcamera.near, xrcamera.far)))
 	#camera_matrices_bytes.append_array(_matrix_to_bytes(xrcamera.global_transform.affine_inverse()))
