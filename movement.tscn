@@ -1,0 +1,15 @@
+[gd_scene load_steps=3 format=3 uid="uid://b5nyga32081ah"]
+
+[ext_resource type="Script" path="res://Camera.gd" id="1_d1l5e"]
+[ext_resource type="Script" path="res://EnableXR.gd" id="2_a7c4y"]
+
+[node name="Movement" type="Node3D"]
+visible = false
+script = ExtResource("1_d1l5e")
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+process_mode = 4
+visible = false
+script = ExtResource("2_a7c4y")
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]

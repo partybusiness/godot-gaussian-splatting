@@ -1,7 +1,9 @@
 extends Node3D
 
-@onready var camera = get_node("Camera")
-@onready var screen_texture = get_node("TextureRect")
+@export var xrcamera:XRCamera3D
+@export var origin:XROrigin3D
+@export var screen_texture:TextureRect
+@export var mesh_display:MeshInstance3D
 @export var splat_filename: String = "train.ply"
 
 var rd = RenderingServer.get_rendering_device()
@@ -50,22 +52,37 @@ var vertices: PackedFloat32Array
 const NUM_BLOCKS_PER_WORKGROUP = 1024
 var NUM_WORKGROUPS
 
+# VR stuff
+
+var xr_interface:XRInterface
+
+
 
 func _matrix_to_bytes(t : Transform3D):
 	var basis : Basis = t.basis
 	var origin : Vector3 = t.origin
 	var bytes : PackedByteArray = PackedFloat32Array([
 		basis.x.x, basis.x.y, basis.x.z, 0.0,
-		basis.y.x, basis.y.y, basis.y.z, 0.0,
 		basis.z.x, basis.z.y, basis.z.z, 0.0,
+		-basis.y.x, -basis.y.y, -basis.y.z, 0.0,
 		origin.x, origin.y, origin.z, 1.0
 	]).to_byte_array()
+	#print(origin)
 	return bytes
 
+func _projection_to_bytes(p : Projection) -> PackedByteArray:
+	var bytes : PackedByteArray = PackedFloat32Array([
+		p.x[0], p.x[1], p.x[2], p.x[3],
+		p.y[0], p.y[1], p.y[2], p.y[3],
+		p.z[0], p.z[1], p.z[2], p.z[3],
+		p.w[0], p.w[1], p.w[2], p.w[3],
+	]).to_byte_array()
+	return bytes
 
 func _initialise_screen_texture():
 	display_texture = Texture2DRD.new()
 	screen_texture.texture = display_texture
+	(mesh_display.get_active_material(0) as ShaderMaterial).set_shader_parameter("display_texture", display_texture)
 
 
 func _load_ply_file():
@@ -103,7 +120,7 @@ func _initialise_framebuffer_format():
 	tex_format.format = RenderingDevice.DATA_FORMAT_R32G32B32A32_SFLOAT
 	tex_format.usage_bits = (RenderingDevice.TEXTURE_USAGE_COLOR_ATTACHMENT_BIT | RenderingDevice.TEXTURE_USAGE_SAMPLING_BIT)
 	output_tex = rd.texture_create(tex_format,tex_view)
-
+	
 	display_texture.texture_rd_rid = output_tex
 	
 	var attachments = []
@@ -118,6 +135,9 @@ func _initialise_framebuffer_format():
 
 # Called when the node enters the scene tree for the first time.
 func _ready():
+	await get_tree().process_frame
+	xr_interface = XRServer.get_interface(1)
+	
 	get_viewport().size_changed.connect(_on_viewport_size_changed)
 
 	print("unpacking .ply file data...")
@@ -141,7 +161,7 @@ func _ready():
 	depth_uniform.binding = 0
 	depth_uniform.add_id(depth_in_buffer)
 		
-	var tan_fovy = tan(deg_to_rad($Camera.fov) * 0.5)
+	var tan_fovy = tan(deg_to_rad(xrcamera.fov) * 0.5)
 	var tan_fovx = tan_fovy * get_viewport().size.x / get_viewport().size.y
 	var focal_y = get_viewport().size.y / (2 * tan_fovy)
 	var focal_x = get_viewport().size.x / (2 * tan_fovx)
@@ -245,10 +265,14 @@ func _ready():
 	vertex_array = rd.vertex_array_create(4, vertex_format, vertex_buffers)
 			
 	# Camera Matrices Buffer
-	var cam_to_world : Transform3D = camera.global_transform
+	var cam_to_world : Transform3D = xr_interface.get_transform_for_view(0, origin.transform)
+	
+	
 	var camera_matrices_bytes := PackedByteArray()
 	camera_matrices_bytes.append_array(_matrix_to_bytes(cam_to_world))
-	camera_matrices_bytes.append_array(PackedFloat32Array([4000.0, 0.05]).to_byte_array())
+	#camera_matrices_bytes.append_array(_matrix_to_bytes(cam_to_world.affine_inverse()))
+	camera_matrices_bytes.append_array(_projection_to_bytes(xr_interface.get_projection_for_view(0, 1.0, xrcamera.near, xrcamera.far)))
+	#camera_matrices_bytes.append_array(PackedFloat32Array([4000.0, 0.05]).to_byte_array())
 	camera_matrices_buffer = rd.storage_buffer_create(camera_matrices_bytes.size(), camera_matrices_bytes)
 	var camera_matrices_uniform := RDUniform.new()
 	camera_matrices_uniform.uniform_type = RenderingDevice.UNIFORM_TYPE_STORAGE_BUFFER
@@ -371,14 +395,18 @@ func radix_sort():
 
 # Called every frame. 'delta' is the elapsed time since the previous frame.
 func update():	
+	var aspect:float = get_viewport().size.x / get_viewport().size.y
 	# Camera Matrices Buffer
 	var camera_matrices_bytes := PackedByteArray()
-	camera_matrices_bytes.append_array(_matrix_to_bytes(camera.global_transform.affine_inverse()))
-	camera_matrices_bytes.append_array(PackedFloat32Array([4000.0, 0.05]).to_byte_array())
+	var cam_to_world : Transform3D = xr_interface.get_transform_for_view(0, origin.transform)
+	camera_matrices_bytes.append_array(_matrix_to_bytes(cam_to_world.affine_inverse()))
+	camera_matrices_bytes.append_array(_projection_to_bytes(xr_interface.get_projection_for_view(0, aspect / 2.0, xrcamera.near, xrcamera.far)))
+	#camera_matrices_bytes.append_array(_matrix_to_bytes(xrcamera.global_transform.affine_inverse()))
+	#camera_matrices_bytes.append_array(PackedFloat32Array([4000.0, 0.05]).to_byte_array())
 	rd.buffer_update(camera_matrices_buffer, 0, camera_matrices_bytes.size(), camera_matrices_bytes)
 
-	var tan_fovy = tan(deg_to_rad($Camera.fov) * 0.5)
-	var tan_fovx = tan_fovy * get_viewport().size.x / get_viewport().size.y
+	var tan_fovy = tan(deg_to_rad(xrcamera.fov) * 0.5)
+	var tan_fovx = tan_fovy * aspect
 	var focal_y = get_viewport().size.y / (2 * tan_fovy)
 	var focal_x = get_viewport().size.x / (2 * tan_fovx)
 
@@ -421,7 +449,7 @@ func _input(event):
 		
 
 func _sort_splats_by_depth():
-	var direction = camera.global_transform.basis.z.normalized()
+	var direction = xrcamera.global_transform.basis.z.normalized()
 	var cos_angle = last_direction.dot(direction)
 	var angle = acos(clamp(cos_angle, -1, 1))
 	

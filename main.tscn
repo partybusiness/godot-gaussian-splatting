@@ -1,17 +1,48 @@
-[gd_scene load_steps=3 format=3 uid="uid://c27tc42js165g"]
+[gd_scene load_steps=8 format=3 uid="uid://c27tc42js165g"]
 
 [ext_resource type="Script" path="res://main.gd" id="1_j5eux"]
 [ext_resource type="Script" path="res://Camera.gd" id="2_ppc5i"]
+[ext_resource type="Script" path="res://frame_rate.gd" id="3_j0yit"]
+[ext_resource type="Shader" path="res://overlay.gdshader" id="4_adnju"]
+[ext_resource type="Script" path="res://EnableXR.gd" id="4_g6t5g"]
 
-[node name="main" type="Node3D"]
+[sub_resource type="QuadMesh" id="QuadMesh_n257o"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_35q0j"]
+render_priority = 0
+shader = ExtResource("4_adnju")
+
+[node name="main" type="Node3D" node_paths=PackedStringArray("xrcamera", "origin", "screen_texture", "mesh_display")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 4.56234)
 script = ExtResource("1_j5eux")
-
-[node name="Camera" type="Camera3D" parent="."]
-current = true
-fov = 37.8
-script = ExtResource("2_ppc5i")
+xrcamera = NodePath("Movement/XROrigin3D/XRCamera3D")
+origin = NodePath("Movement/XROrigin3D")
+screen_texture = NodePath("TextureRect")
+mesh_display = NodePath("Movement/XROrigin3D/XRCamera3D/MeshDisplay")
+splat_filename = "splat_files/Rose.ply"
 
 [node name="TextureRect" type="TextureRect" parent="."]
+visible = false
 offset_right = 40.0
 offset_bottom = 40.0
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0
+theme_override_font_sizes/font_size = 30
+text = "FPS"
+script = ExtResource("3_j0yit")
+
+[node name="Movement" type="Node3D" parent="."]
+script = ExtResource("2_ppc5i")
+
+[node name="XROrigin3D" type="XROrigin3D" parent="Movement"]
+script = ExtResource("4_g6t5g")
+
+[node name="XRCamera3D" type="XRCamera3D" parent="Movement/XROrigin3D"]
+
+[node name="MeshDisplay" type="MeshInstance3D" parent="Movement/XROrigin3D/XRCamera3D"]
+transform = Transform3D(-1, 8.74228e-08, 0, -8.74228e-08, -1, 0, 0, 0, 1, 0, 0, -1.53012)
+mesh = SubResource("QuadMesh_n257o")
+skeleton = NodePath("../../../..")
+surface_material_override/0 = SubResource("ShaderMaterial_35q0j")

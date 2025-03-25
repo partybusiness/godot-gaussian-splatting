@@ -5,8 +5,7 @@ layout(location = 0) in vec3 vertex_position;
 
 layout(set = 0, binding = 3, std430) restrict buffer CameraData {
 	mat4 CameraToWorld;
-	float CameraFarPlane;
-	float CameraNearPlane;
+	mat4 CameraProjection;
 }
 camera_data;
 
@@ -147,17 +146,6 @@ vec3 computeCov2D(vec3 position, vec3 log_scale, vec4 rot, mat4 viewMatrix, int 
 }
 
 
-
-mat4 getProjectionMatrix(float aspect, float near, float far) {
-    mat4 result = mat4(0.0);
-    result[0][0] = 1.0 / (aspect * params.tan_fovy);
-    result[1][1] = 1.0 / (params.tan_fovy);
-    result[2][2] = -(far + near) / (far - near);
-    result[2][3] = -1.0;
-    result[3][2] = -(2.0 * far * near) / (far - near);
-    return result;
-}
-
 float sigmoid(float x) {
     if (x >= 0.0) {
         return 1.0 / (1.0 + exp(-x));
@@ -182,7 +170,7 @@ void main()
 {
     int idx = int(depth[gl_InstanceIndex][1]) * NUM_PROPERTIES;
     float aspect = params.viewport_size.x / params.viewport_size.y;
-    mat4 projMatrix = getProjectionMatrix(aspect, camera_data.CameraNearPlane, camera_data.CameraFarPlane);
+    mat4 projMatrix = camera_data.CameraProjection;
     mat4 viewMatrix = camera_data.CameraToWorld;
 
     // Projection

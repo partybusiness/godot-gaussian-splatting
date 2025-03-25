@@ -1,4 +1,5 @@
-extends Camera3D
+#extends Camera3D
+extends Node3D
 
 # Adapted from:
 # https://github.com/nekotogd/Raytracing_Godot4
