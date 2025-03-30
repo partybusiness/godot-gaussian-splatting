@@ -6,6 +6,17 @@ extends Node3D
 @export var mesh_display:MeshInstance3D
 @export var splat_filename: String = "train.ply"
 
+#splat_files/Auditorium by the sea.ply
+#splat_files/Rose.ply
+
+@export var rotate_splats:bool = false
+@export var rotation_value:Vector3
+
+@export var scale_splats:bool = false
+@export var scale_value:float = 1.0
+
+@export var offset_pos_value:Vector3 = Vector3.ZERO
+
 var rd = RenderingServer.get_rendering_device()
 var pipeline: RID
 var shader: RID
@@ -98,10 +109,13 @@ func _load_ply_file():
 
 	var num_properties = 0
 	var line = file.get_line()
+	var properties:Array[String] = []
+	
 	while not file.eof_reached():
 		if line.begins_with("element vertex"):
 			num_vertex = int(line.split(" ")[2])
 		elif line.begins_with("property"):
+			properties.append(line.split(" ")[2])
 			num_properties += 1
 		elif line.begins_with("end_header"):
 			break
@@ -110,7 +124,77 @@ func _load_ply_file():
 	print("num splats: ", num_vertex)
 	print("num properties: ", num_properties)
 	
+	#num_vertex = 1
 	vertices = file.get_buffer(num_vertex * num_properties * 4).to_float32_array()
+	
+	var duplicate_vertices = vertices.duplicate()
+	
+	var calc_rot := Quaternion.from_euler(Vector3(deg_to_rad(rotation_value.x), deg_to_rad(rotation_value.y), deg_to_rad(rotation_value.z)))
+	var calc_rot2 := Quaternion.from_euler(Vector3(deg_to_rad(rotation_value.z), deg_to_rad(rotation_value.y), -deg_to_rad(rotation_value.x)))
+	
+	
+	# x y z ## position
+	# opacity
+	# scale_0
+	# scale_1
+	# scale_2
+	# rot_0 ## quaternion?
+	# rot_1
+	# rot_2
+	# rot_3
+	if scale_splats || rotate_splats:
+		var x_i:int = properties.find("x")
+		var y_i:int = properties.find("y")
+		var z_i:int = properties.find("z")
+		
+		var scale_0:int = properties.find("scale_0")
+		var scale_1:int = properties.find("scale_1")
+		var scale_2:int = properties.find("scale_2")
+		
+		var rot_0:int = properties.find("rot_0")
+		var rot_1:int = properties.find("rot_1")
+		var rot_2:int = properties.find("rot_2")
+		var rot_3:int = properties.find("rot_3")
+		
+		for i in num_vertex:
+			var index:int = i * num_properties
+			#var pos:Vector3 = Vector3(vertices[index], vertices[index + 1], vertices[index + 2])
+			var temp_pos:Vector3 = Vector3(vertices[index + x_i], vertices[index + y_i], vertices[index + z_i])
+			var temp_scale:Vector3 = Vector3(vertices[index + scale_0], vertices[index + scale_1], vertices[index + scale_2])
+			var temp_rot:Quaternion = Quaternion(vertices[index + rot_0], vertices[index + rot_1], vertices[index + rot_2], vertices[index + rot_3]).normalized()
+			print(temp_rot, ", ", vertices[index + rot_3], " = ", (Vector3(temp_rot.x, temp_rot.y, temp_rot.z)).length(), " ", temp_rot.length(), ", ", calc_rot.length())
+			if scale_splats:
+				temp_pos = temp_pos * scale_value
+				temp_scale = temp_scale + Vector3.ONE * log(scale_value) # scale is logarithmic
+			if rotate_splats:
+				temp_pos = calc_rot * temp_pos
+				temp_rot = calc_rot * temp_rot
+				#temp_scale = calc_rot * temp_scale
+			
+			temp_pos += offset_pos_value
+			
+			vertices[index + x_i] = temp_pos.x
+			vertices[index + y_i] = temp_pos.y
+			vertices[index + z_i] = temp_pos.z
+			
+			vertices[index + scale_0] = temp_scale.x
+			vertices[index + scale_1] = temp_scale.y
+			vertices[index + scale_2] = temp_scale.z
+			
+			vertices[index + rot_0] = temp_rot.x
+			vertices[index + rot_1] = temp_rot.y
+			vertices[index + rot_2] = temp_rot.z
+			vertices[index + rot_3] = temp_rot.w
+			
+			#vertices[index + properties.find("opacity")] = 1.0
+			#duplicate_vertices[index + properties.find("opacity")] = 1.0
+			
+		
+	#vertices = file.get_buffer(num_vertex * num_properties * 4).to_float32_array()
+	
+	vertices.append_array(duplicate_vertices)
+	num_vertex *= 2
+	
 	file.close()
 	
 
@@ -151,6 +235,7 @@ func _ready():
 	_load_ply_file()	
 	
 	print("configuring shaders...")
+	#vertices[0].
 	var vertices_buffer = rd.storage_buffer_create(vertices.size() * 4, vertices.to_byte_array())
 	
 	var vertices_uniform = RDUniform.new()
