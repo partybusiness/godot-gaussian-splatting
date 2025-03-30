@@ -8,6 +8,8 @@ extends Node3D
 @export var move_speed : float = 5.0
 @export var roll_speed: float = 40.0
 
+@export var head:Node3D
+
 func _input(event):
 	if event is InputEventMouseMotion:
 		if Input.is_action_pressed("left_mouse_btn"):
@@ -22,9 +24,9 @@ func _process(_delta):
 		Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
 		
 	if Input.is_action_pressed("roll_cw"):
-		rotate_object_local(Vector3(0.0, 0.0, 1.0), deg_to_rad(-roll_speed * _delta))
+		rotate_object_local(Vector3(0.0, 1.0, 0.0), deg_to_rad(-roll_speed * _delta))
 	if Input.is_action_pressed("roll_ccw"):
-		rotate_object_local(Vector3(0.0, 0.0, 1.0), deg_to_rad(roll_speed * _delta))
+		rotate_object_local(Vector3(0.0, 1.0, 0.0), deg_to_rad(roll_speed * _delta))
 		
 		
 	_move(_delta)
@@ -37,12 +39,19 @@ func _move(_delta):
 	if input_vector.length() > 1.0:
 		input_vector = input_vector.normalized()
 	
+	var forward_vector := head.global_basis.z
+	var side_vector := -head.global_basis.x
+	forward_vector.y = 0
+	forward_vector = forward_vector.normalized()
+	side_vector.y = 0
+	side_vector = side_vector.normalized()
+	
 	var displacement := Vector3.ZERO
-	displacement = global_transform.basis.z * move_speed * input_vector.z * _delta
+	displacement = forward_vector * move_speed * input_vector.z * _delta
 	global_transform.origin += displacement
 	
-	displacement = global_transform.basis.x * move_speed * input_vector.x * _delta
+	displacement = side_vector * move_speed * input_vector.x * _delta
 	global_transform.origin += displacement
 	
-	displacement = global_transform.basis.y * move_speed * input_vector.y * _delta
-	global_transform.origin -= displacement
+	displacement = Vector3.UP * move_speed * input_vector.y * _delta
+	global_transform.origin += displacement
